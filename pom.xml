@@ -5,42 +5,30 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.6</version>
+        <version>3.2.2</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>ru.shanina.securityFramework</groupId>
     <artifactId>securityFramework</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>securityFramework</name>
-    <description>securityFramework</description>
+    <description>Security Framework for Java Applications</description>
     <packaging>pom</packaging>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
+
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <spring-boot.version>3.2.2</spring-boot.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-
     <modules>
-        <module>src/main/java/ru/shanina/securityframework/securityframework/core_iam</module>
-        <module>src/main/java/ru/shanina/securityframework/securityframework/core_audit</module>
-        <module>src/main/java/ru/shanina/securityframework/securityframework/core_vault</module>
-        <module>src/main/java/ru/shanina/securityframework/securityframework/core_k8s_generator</module>
-        <module>src/main/java/ru/shanina/securityframework/securityframework/sample_app</module>
+        <module>core_iam</module>
+        <module>core_audit</module>
+        <module>core_vault</module>
+        <module>core_k8s_generator</module>
+        <module>sample_app</module>
     </modules>
 
     <dependencies>
@@ -48,7 +36,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -76,5 +63,5 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
+
