@@ -1,4 +1,10 @@
 package ru.shanina.securityframework.securityframework.core_audit;
 
-public class Audit {
+import java.lang.annotation.*;
+
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface Audit {
+    String event() default "";
+    String level() default "INFO";
 }

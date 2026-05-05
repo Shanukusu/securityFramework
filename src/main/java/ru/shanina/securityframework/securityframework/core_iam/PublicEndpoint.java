@@ -1,4 +1,10 @@
 package ru.shanina.securityframework.securityframework.core_iam;
 
-public class PublicEndpoint {
+import java.lang.annotation.*;
+
+@Target({ElementType.METHOD, ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface PublicEndpoint {
+    String reason() default "";
 }
