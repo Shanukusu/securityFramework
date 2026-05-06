@@ -49,7 +49,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <mainClass>ru.shanina.securityframework.securityframework.sample_app.DemoApplication</mainClass>
+                    <mainClass>ru.shanina.securityframework.sample_app.DemoApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>
