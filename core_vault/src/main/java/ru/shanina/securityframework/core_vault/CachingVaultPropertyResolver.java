@@ -1,47 +1,55 @@
 package ru.shanina.securityframework.core_vault;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.vault.config.VaultProperties;
 import org.springframework.vault.core.VaultOperations;
 import org.springframework.vault.core.env.VaultPropertySource;
-import java.util.concurrent.*;
 
+import java.time.Duration;
+
+@Slf4j
 public class CachingVaultPropertyResolver {
+    private final LoadingCache<String, String> cache;
     private final VaultOperations vaultOperations;
-    private final VaultProperties properties;
-    private final ConcurrentMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
 
     public CachingVaultPropertyResolver(VaultOperations vaultOps, VaultProperties props) {
         this.vaultOperations = vaultOps;
-        this.properties = props;
-        scheduler.scheduleAtFixedRate(this::evictExpired, 1, 1, TimeUnit.MINUTES);
+        this.cache = Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofMinutes(5))
+                .refreshAfterWrite(Duration.ofMinutes(1))
+                .recordStats()
+                .build(this::loadSecretFromVault);
     }
 
     public String getSecret(String path) {
-        CacheEntry entry = cache.get(path);
-        if (entry != null && entry.expiryTime > System.currentTimeMillis()) {
-            return entry.value;
+        try {
+            return cache.get(path);
+        } catch (Exception e) {
+            log.error("Failed to get secret from Vault: {}", path, e);
+            return null;
         }
-        // Исправленный порядок аргументов, если необходимо:
-        VaultPropertySource source = new VaultPropertySource(vaultOperations, path);
-        String value = (String) source.getProperty(path);
-        cache.put(path, new CacheEntry(value, System.currentTimeMillis() + 300_000));
-        return value;
     }
 
-    private void evictExpired() {
-        long now = System.currentTimeMillis();
-        cache.entrySet().removeIf(e -> e.getValue().expiryTime <= now);
+    private String loadSecretFromVault(String path) {
+        try {
+            VaultPropertySource source = new VaultPropertySource(vaultOperations, path);
+            Object value = source.getProperty(path);
+            return value != null ? value.toString() : null;
+        } catch (Exception e) {
+            log.warn("Failed to load secret from Vault at path: {}", path, e);
+            return null;
+        }
     }
 
-    private static class CacheEntry {
-        final String value;
-        final long expiryTime;
+    public void invalidate(String path) {
+        cache.invalidate(path);
+        log.info("Invalidated cache for path: {}", path);
+    }
 
-        CacheEntry(String value, long expiryTime) {
-            this.value = value;
-            this.expiryTime = expiryTime;
-        }
+    public void invalidateAll() {
+        cache.invalidateAll();
+        log.info("Invalidated all cache entries");
     }
 }

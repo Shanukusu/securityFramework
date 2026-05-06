@@ -26,9 +26,17 @@ public class K8sManifestGeneratorMojo extends AbstractMojo {
     public void execute() throws MojoExecutionException {
         if (!outputDirectory.exists()) outputDirectory.mkdirs();
 
+        // Analyze project structure and dependencies
+        SecurityAnalyzer analyzer = new SecurityAnalyzer();
+        File sourceDir = new File(project.getBasedir(), "src/main/java");
+        if (sourceDir.exists()) {
+            analyzer.analyzeProject(sourceDir);
+        }
+
         generateDeployment();
         generateService();
-        generateNetworkPolicy();
+        generateNetworkPolicy(analyzer);
+        generateRBAC();
 
         getLog().info("Kubernetes manifests generated in " + outputDirectory.getAbsolutePath());
     }
@@ -110,7 +118,7 @@ public class K8sManifestGeneratorMojo extends AbstractMojo {
         writeYaml(service, "service.yaml");
     }
 
-    private void generateNetworkPolicy() {
+    private void generateNetworkPolicy(SecurityAnalyzer analyzer) {
         Map<String, Object> policy = new LinkedHashMap<>();
         policy.put("apiVersion", "networking.k8s.io/v1");
         policy.put("kind", "NetworkPolicy");
@@ -134,6 +142,48 @@ public class K8sManifestGeneratorMojo extends AbstractMojo {
         policy.put("spec", spec);
 
         writeYaml(policy, "network-policy.yaml");
+    }
+
+    private void generateRBAC() {
+        // Generate ServiceAccount
+        Map<String, Object> serviceAccount = new LinkedHashMap<>();
+        serviceAccount.put("apiVersion", "v1");
+        serviceAccount.put("kind", "ServiceAccount");
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("name", project.getArtifactId());
+        serviceAccount.put("metadata", metadata);
+        writeYaml(serviceAccount, "service-account.yaml");
+
+        // Generate Role
+        Map<String, Object> role = new LinkedHashMap<>();
+        role.put("apiVersion", "rbac.authorization.k8s.io/v1");
+        role.put("kind", "Role");
+        Map<String, Object> roleMeta = new LinkedHashMap<>();
+        roleMeta.put("name", project.getArtifactId());
+        role.put("metadata", roleMeta);
+        Map<String, Object> roleRules = new LinkedHashMap<>();
+        roleRules.put("rules", List.of(Map.of(
+                "apiGroups", List.of(""),
+                "resources", List.of("secrets"),
+                "verbs", List.of("get", "list")
+        )));
+        role.put("rules", List.of(Map.of(
+                "apiGroups", List.of(""),
+                "resources", List.of("configmaps"),
+                "verbs", List.of("get", "list")
+        )));
+        writeYaml(role, "role.yaml");
+
+        // Generate RoleBinding
+        Map<String, Object> roleBinding = new LinkedHashMap<>();
+        roleBinding.put("apiVersion", "rbac.authorization.k8s.io/v1");
+        roleBinding.put("kind", "RoleBinding");
+        Map<String, Object> bindMeta = new LinkedHashMap<>();
+        bindMeta.put("name", project.getArtifactId() + "-binding");
+        roleBinding.put("metadata", bindMeta);
+        roleBinding.put("roleRef", Map.of("apiGroup", "rbac.authorization.k8s.io", "kind", "Role", "name", project.getArtifactId()));
+        roleBinding.put("subjects", List.of(Map.of("kind", "ServiceAccount", "name", project.getArtifactId())));
+        writeYaml(roleBinding, "role-binding.yaml");
     }
 
     private void writeYaml(Map<String, Object> data, String filename) {

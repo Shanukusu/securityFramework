@@ -1,0 +1,38 @@
+securitas:
+  iam:
+    enabled: true
+    jwt:
+      secret: defaultSecretKeyForDevelopmentOnlyChangeInProduction1234567890
+      expiration: 3600000
+  
+  policies:
+    rules:
+      - path: /health
+        method: GET
+        allow: PUBLIC
+        
+      - path: /login
+        method: POST
+        allow: PUBLIC
+        
+      - path: /user/**
+        method: GET
+        require:
+          role: USER
+          
+      - path: /admin/**
+        method: GET
+        require:
+          role: ADMIN
+          
+      - path: /metrics
+        method: GET
+        require:
+          role: ADMIN
+        audit: true
+        
+    defaults:
+      require:
+        authentication: true
+      audit: false
+      rateLimit: 100
