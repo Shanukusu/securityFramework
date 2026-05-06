@@ -17,6 +17,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 @Configuration
 @EnableWebSecurity
@@ -32,12 +34,17 @@ public class IamAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(UserDetailsService.class)
     public UserDetailsService userDetailsService() {
-        UserDetails user = User.withDefaultPasswordEncoder()
+        UserDetails admin = User.builder()
+                .username("admin")
+                .password("{noop}admin")
+                .roles("ADMIN", "USER")
+                .build();
+        UserDetails user = User.builder()
                 .username("user")
-                .password("password")
+                .password("{noop}password")
                 .roles("USER")
                 .build();
-        return new InMemoryUserDetailsManager(user);
+        return new InMemoryUserDetailsManager(admin, user);
     }
 
     @Bean
@@ -54,7 +61,8 @@ public class IamAutoConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    PublicEndpointHandlerMapping publicEndpoints,
-                                                   JwtAuthenticationFilter jwtAuthFilter) throws Exception {
+                                                   JwtAuthenticationFilter jwtAuthFilter,
+                                                   RateLimitingFilter rateLimitingFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -62,6 +70,7 @@ public class IamAutoConfiguration {
                         .requestMatchers(publicEndpoints.getPublicEndpointsMatcher()).permitAll()
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -69,5 +78,16 @@ public class IamAutoConfiguration {
     @Bean
     public PublicEndpointHandlerMapping publicEndpointHandlerMapping(ApplicationContext context) {
         return new PublicEndpointHandlerMapping(context);
+    }
+
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
+
+        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
+        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        return jwtAuthenticationConverter;
     }
 }

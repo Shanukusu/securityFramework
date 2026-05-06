@@ -23,4 +23,11 @@ public class UserController {
     public User getUser(@PathVariable Long id) {
         return userService.findById(id);
     }
+
+    @Audit(event = "ADMIN_ACTION", level = "WARN")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin")
+    public String adminOnly() {
+        return "Admin access granted";
+    }
 }

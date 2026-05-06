@@ -7,11 +7,12 @@ import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 public class PublicEndpointHandlerMapping {
     private final ApplicationContext context;
@@ -25,24 +26,21 @@ public class PublicEndpointHandlerMapping {
     public void init() {
         List<RequestMatcher> matchers = new ArrayList<>();
         RequestMappingHandlerMapping mapping = context.getBean(RequestMappingHandlerMapping.class);
-        Map<?, HandlerMethod> map = mapping.getHandlerMethods();
+        Map<RequestMappingInfo, HandlerMethod> map = mapping.getHandlerMethods();
 
-        for (Map.Entry<?, HandlerMethod> entry : map.entrySet()) {
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : map.entrySet()) {
             HandlerMethod handler = entry.getValue();
             if (handler.hasMethodAnnotation(PublicEndpoint.class) ||
                     handler.getBeanType().isAnnotationPresent(PublicEndpoint.class)) {
-                // Получаем все паттерны URL из RequestMappingInfo
-                var patterns = entry.getKey().toString(); // упрощённо; реально нужно парсить
-                matchers.add(new AntPathRequestMatcher(extractPattern(entry.getKey())));
+                Set<String> patterns = entry.getKey().getPatternsCondition().getPatterns();
+                for (String pattern : patterns) {
+                    matchers.add(new AntPathRequestMatcher(pattern));
+                }
             }
         }
         this.publicEndpointsMatcher = new OrRequestMatcher(matchers);
     }
 
-    private String extractPattern(Object requestMappingInfo) {
-        // В реальном проекте: requestMappingInfo.getPatternsCondition().getPatterns().iterator().next()
-        return "/**";
-    }
 
     public RequestMatcher getPublicEndpointsMatcher() {
         return publicEndpointsMatcher;

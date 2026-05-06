@@ -6,6 +6,6 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 @Configuration
 @EnableAspectJAutoProxy
-@ComponentScan("com.vsu.securitas.audit")
+@ComponentScan("ru.shanina.securityframework.core_audit")
 public class AuditAutoConfiguration {
 }

@@ -27,6 +27,7 @@ public class K8sManifestGeneratorMojo extends AbstractMojo {
         if (!outputDirectory.exists()) outputDirectory.mkdirs();
 
         generateDeployment();
+        generateService();
         generateNetworkPolicy();
 
         getLog().info("Kubernetes manifests generated in " + outputDirectory.getAbsolutePath());
@@ -87,6 +88,26 @@ public class K8sManifestGeneratorMojo extends AbstractMojo {
         deployment.put("spec", spec);
 
         writeYaml(deployment, "deployment.yaml");
+    }
+
+    private void generateService() {
+        Map<String, Object> service = new LinkedHashMap<>();
+        service.put("apiVersion", "v1");
+        service.put("kind", "Service");
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("name", project.getArtifactId());
+        metadata.put("labels", Map.of("app", project.getArtifactId()));
+        service.put("metadata", metadata);
+
+        Map<String, Object> spec = new LinkedHashMap<>();
+        spec.put("type", "ClusterIP");
+        spec.put("selector", Map.of("app", project.getArtifactId()));
+        spec.put("ports", List.of(
+                Map.of("port", 8080, "targetPort", 8080, "protocol", "TCP")
+        ));
+        service.put("spec", spec);
+
+        writeYaml(service, "service.yaml");
     }
 
     private void generateNetworkPolicy() {
