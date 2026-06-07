@@ -1,0 +1,307 @@
+spring:
+  application:
+    name: secure-app
+  profiles:
+    active: secure
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://auth-server.example.com
+          jwk-set-uri: https://auth-server.example.com/.well-known/jwks.json
+
+# Security Framework v2.0 - Full Configuration
+securitas:
+
+  # ============================================
+  # 1. POLICY ENGINE MODULE (core_policy)
+  # ============================================
+  policy:
+    enabled: true
+    engine: abac  # Options: "abac" or "opa"
+    opa:
+      url: http://opa:8181
+      timeout: 5000
+    cache:
+      ttlMinutes: 5
+      maxSize: 1000
+
+  # ============================================
+  # 2. SERVICE MESH SECURITY (core_mesh)
+  # ============================================
+  mesh:
+    enabled: false  # Set to true in Kubernetes
+    provider: istio  # Options: "istio" or "linkerd"
+    mtls:
+      enforcement: STRICT  # Options: STRICT, PERMISSIVE, DISABLED
+      rotationIntervalDays: 90
+
+  # ============================================
+  # 3. SECURITY SCANNER (core_scanner)
+  # ============================================
+  scanner:
+    enabled: false  # Set to true for CI/CD
+    trivy:
+      enabled: true
+    dependencyCheck:
+      enabled: true
+    schedule: "0 2 * * 0"  # Weekly at 2 AM Sunday
+
+  # ============================================
+  # 4. COMPLIANCE (core_compliance)
+  # ============================================
+  compliance:
+    enabled: true
+    frameworks:
+      - PCI_DSS
+      - GOST_57580
+      - ISO_27001
+      - OWASP_ASVS
+    checkInterval: "PT1H"  # Every hour
+
+  # ============================================
+  # 5. API SECURITY (core_api_security)
+  # ============================================
+  api-security:
+    enabled: true
+    rateLimit:
+      requestsPerSecond: 1000
+      burstSize: 2000
+    ddos:
+      enabled: true
+      threshold: 5000
+      detectionWindow: 60000  # 60 seconds
+    apiKey:
+      enabled: true
+      headerName: "X-API-Key"
+      expirationDays: 365
+
+  # ============================================
+  # 6. SECRET ROTATION (core_secret_rotation)
+  # ============================================
+  secret-rotation:
+    enabled: true
+    interval: 30d
+    policy: graceful  # Options: safe, blue-green, graceful, canary
+    preRotationHealthCheck: true
+    postRotationHealthCheck: true
+    rollbackOnFailure: true
+    maxRetries: 3
+
+  # ============================================
+  # 7. OBSERVABILITY SECURITY (core_observability_security)
+  # ============================================
+  observability:
+    enabled: true
+    tracing:
+      enabled: true
+      backend: jaeger  # Options: jaeger, tempo, otlp
+      jaeger:
+        endpoint: http://jaeger:14268/api/traces
+        agentHost: localhost
+        agentPort: 6831
+      sampling:
+        rate: 1.0  # 100% for security events
+      logCorrelation: true
+    metrics:
+      enabled: true
+      prometheus:
+        enabled: true
+        endpoint: /actuator/prometheus
+      exportInterval: 60000  # 60 seconds
+    logging:
+      maskSensitiveData: true
+      auditLogLevel: INFO
+
+  # ============================================
+  # 8. SUPPLY CHAIN SECURITY (core_supply_chain)
+  # ============================================
+  supply-chain:
+    enabled: true
+    sbom:
+      enabled: true
+      format: cyclonedx  # Options: cyclonedx, spdx
+      updateInterval: PT1H
+    signing:
+      enabled: true
+      provider: sigstore  # Options: sigstore, cosign, pgp
+      keyManager: vault  # Use Vault for key storage
+    slsa:
+      enabled: true
+      minimumLevel: 2  # Level 1, 2, 3, or 4
+      generateAttestation: true
+    supplyChainRisk:
+      enabled: true
+      checkTransitiveCves: true
+      allowedSuppliers: []  # Empty = all allowed
+      blockedPackages:
+        - malicious-lib
+        - dangerous-package
+
+# ============================================
+# SPRING BOOT ACTUATOR & MONITORING
+# ============================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,env
+      base-path: /actuator
+
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        securitas_policy_evaluation_duration_seconds: true
+        securitas_rate_limit_check_duration_seconds: true
+
+  tracing:
+    sampling:
+      probability: 1.0  # 100% for security events
+
+# ============================================
+# LOGGING CONFIGURATION
+# ============================================
+logging:
+  level:
+    root: INFO
+    ru.shanina.securityframework: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+    max-size: 10MB
+    max-history: 30
+
+# ============================================
+# APPLICATION CONFIGURATION
+# ============================================
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
+  compression:
+    enabled: true
+    min-response-size: 1024
+
+# ============================================
+# VAULT CONFIGURATION (for core_vault)
+# ============================================
+vault:
+  uri: http://localhost:8200
+  token: ${VAULT_TOKEN:s.xxxxxxxxxxxxxx}
+  skip-ssl-validation: false
+  ssl:
+    cert-auth-path: /etc/vault/certs
+
+---
+# PRODUCTION PROFILE
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+server:
+  port: 443
+  ssl:
+    enabled: true
+    key-store: classpath:keystore.p12
+    key-store-password: ${KEY_STORE_PASSWORD}
+    key-store-type: PKCS12
+
+securitas:
+  policy:
+    cache:
+      ttlMinutes: 10
+
+  mesh:
+    enabled: true
+    mtls:
+      enforcement: STRICT
+
+  scanner:
+    enabled: true
+    schedule: "0 0 * * 0"  # Weekly
+
+  compliance:
+    enabled: true
+    checkInterval: "PT4H"
+
+  api-security:
+    rateLimit:
+      requestsPerSecond: 5000
+      burstSize: 10000
+
+  secret-rotation:
+    enabled: true
+    interval: 7d
+    policy: blue-green
+
+  observability:
+    tracing:
+      sampling:
+        rate: 0.1  # 10% sampling in production
+
+  supply-chain:
+    slsa:
+      minimumLevel: 3
+
+logging:
+  level:
+    root: WARN
+    ru.shanina.securityframework: INFO
+
+---
+# DEVELOPMENT PROFILE
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+securitas:
+  policy:
+    engine: abac
+    cache:
+      ttlMinutes: 1
+
+  mesh:
+    enabled: false
+
+  scanner:
+    enabled: false
+
+  api-security:
+    rateLimit:
+      requestsPerSecond: 10000
+
+  secret-rotation:
+    enabled: false
+
+  observability:
+    tracing:
+      sampling:
+        rate: 1.0  # 100% in dev
+
+  supply-chain:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    ru.shanina.securityframework: DEBUG
+    org.springframework.security: DEBUG
+

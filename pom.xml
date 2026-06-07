@@ -28,6 +28,14 @@
         <module>core_audit</module>
         <module>core_vault</module>
         <module>core_k8s_generator</module>
+        <module>core_policy</module>
+        <module>core_mesh</module>
+        <module>core_scanner</module>
+        <module>core_compliance</module>
+        <module>core_api_security</module>
+        <module>core_secret_rotation</module>
+        <module>core_observability_security</module>
+        <module>core_supply_chain</module>
         <module>sample_app</module>
     </modules>
 
